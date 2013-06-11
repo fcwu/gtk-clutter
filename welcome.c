@@ -20,8 +20,7 @@ static float smooth_step2(float a, float b, float z) {
 
 static void on_button_clicked(GtkWidget *widget, GdkEvent *event, gpointer data)
 {
-    void on_complete(GtkWidget *widget, gpointer data)
-    {
+    void on_complete(GtkWidget *widget, gpointer data) {
         g_debug("%s: %d", __FUNCTION__, __LINE__);
         clutter_actor_hide(CLUTTER_ACTOR(data));
     }
@@ -71,11 +70,11 @@ static void on_button_clicked(GtkWidget *widget, GdkEvent *event, gpointer data)
 static void layout()
 {
     static Button my_buttons[] = {
-        {.image_path = "astask/logo0.png"},
-        {.image_path = "astask/logo1.png"},
-        {.image_path = "astask/logo2.png"},
-        {.image_path = "astask/logo3.png"},
-        {.image_path = "astask/logo4.png"}
+        {.image_path = "logo0.png"},
+        {.image_path = "logo1.png"},
+        {.image_path = "logo2.png"},
+        {.image_path = "logo3.png"},
+        {.image_path = "logo4.png"}
     };
     GdkPixbuf * load_pixbuf_from_file(const char *filename)
     {
@@ -86,6 +85,7 @@ static void layout()
             g_critical("Error loading file: %d : %s\n", error->code, error->message);
             g_error_free(error);
         }
+        g_debug("Image %s has transparent %d", filename, gdk_pixbuf_get_has_alpha(pixbuf));
         return pixbuf;
     }
  
@@ -95,7 +95,6 @@ static void layout()
     GtkWidget *fixed;
     GtkWidget *embed;
     GtkWidget *w;
-    GtkWidget *image;
     GtkWidget *eventbox;
     GdkPixbuf * pixbuf;
     GdkPixbuf * pixbuf_scaled;
@@ -121,39 +120,104 @@ static void layout()
     gtk_container_add(GTK_CONTAINER(bin), fixed);
     gtk_widget_show_all(GTK_WIDGET(fixed));
 
+    //// background
+    //pixbuf = load_pixbuf_from_file("background.png");
+    //pixbuf_scaled = gdk_pixbuf_scale_simple(pixbuf, 
+    //                                        screen_width, 
+    //                                        screen_height, 
+    //                                        GDK_INTERP_BILINEAR);
+    //GtkWidget * image = gtk_image_new_from_pixbuf(pixbuf_scaled);
+    //gtk_fixed_put(GTK_FIXED(fixed), image, 
+    //              0, 0);
+    //gtk_widget_show(image);
+    //clutter_actor_hide(actor);
+
+    ClutterColor stage_color = { 255, 255, 255, 0}; // transparent
+    clutter_stage_set_color(CLUTTER_STAGE(stage), &stage_color);
+
+
+    //---------- test
+    void set_event_box_background (GtkWidget *event_box, GdkPixbuf * pixbuf)
+    {
+        GError *error = NULL;
+        //const gchar *file_path = g_strjoin ("/", PKGDATADIR, "images", "slider_bg.png", NULL);
+        //GdkPixbuf *pixbuf = gdk_pixbuf_new_from_file (file_path, &error);
+        GdkPixmap *pixmap = NULL;
+        GdkPixmap *mask = NULL;
+
+        gdk_pixbuf_render_pixmap_and_mask (pixbuf, &pixmap, &mask, 255);
+        //GtkStyle *orig_style = gtk_widget_get_style (event_box);
+        //GtkStyle *style = gtk_style_copy (orig_style);
+        //style->bg_pixmap[GTK_STATE_NORMAL] = pixmap;
+        //gtk_widget_set_style (event_box, style);
+    }
+    gboolean on_expose_bg(GtkWidget *widget, GdkEventExpose *event, gpointer userdata)
+    {
+        //cairo_t *cr = gdk_cairo_create(widget->window);
+
+        ////AsPlayer * player = (AsPlayer *)userdata;
+        ////if (player->ui.supports_alpha)
+        //cairo_set_source_rgba (cr, 0.0, 0.0, 0.0, 0); /* transparent */
+        ////else
+        ////    cairo_set_source_rgb (cr, 0.0, 0.0, 0.0);
+
+        ///* draw the background */
+        //cairo_set_operator (cr, CAIRO_OPERATOR_SOURCE);
+        //cairo_paint (cr);
+
+        //cairo_destroy(cr);
+
+        return FALSE;
+    }
+    //gtk_widget_set_app_paintable(embed, TRUE );   // set the widget
+    //g_signal_connect(GTK_OBJECT(embed), "expose-event", G_CALLBACK(on_expose_bg), NULL);
+    //-------
+
     int i;
     for (i = 0; i < sizeof(my_buttons) / sizeof(Button); ++i) {
-        eventbox = gtk_event_box_new();
         pixbuf = load_pixbuf_from_file(my_buttons[i].image_path);
         pixbuf_scaled = gdk_pixbuf_scale_simple(pixbuf, 
                                                 image_width, 
                                                 image_height, 
                                                 GDK_INTERP_BILINEAR);
-        image = gtk_image_new_from_pixbuf(pixbuf_scaled);
 
-
+        // location and size
         my_buttons[i].width = image_width;
         my_buttons[i].height = image_height;
         my_buttons[i].x = image_width * i;
         my_buttons[i].y = (screen_height - image_height) / 2;
 
-        gtk_container_add(GTK_CONTAINER(eventbox), image);
+        // clutter
+        my_buttons[i].actor = actor = gtk_clutter_actor_new();
+        //w = gtk_clutter_actor_get_widget(GTK_CLUTTER_ACTOR (actor));
+        //gtk_container_add(GTK_CONTAINER(w), gtk_image_new_from_pixbuf(pixbuf_scaled));
+        my_buttons[i].actor = actor = clutter_texture_new_from_file(my_buttons[i].image_path, NULL);
+        //gtk_container_add(GTK_CONTAINER(w), 
+        //                  eventbox);
+        //gtk_container_add(GTK_CONTAINER(w), 
+        clutter_actor_set_position (actor, my_buttons[i].x, my_buttons[i].y);
+        clutter_actor_set_size (actor, my_buttons[i].width, my_buttons[i].height);
+        clutter_container_add_actor(CLUTTER_CONTAINER (stage), actor);
+        clutter_actor_hide(actor);
+
+        // button widget
+        eventbox = gtk_event_box_new();
+        gtk_container_add(GTK_CONTAINER(eventbox), 
+                          gtk_image_new_from_pixbuf(pixbuf_scaled));
+        gtk_widget_set_size_request(eventbox, my_buttons[i].width, my_buttons[i].height);
+        //gtk_event_box_set_visible_window(eventbox, FALSE);
+        //set_event_box_background(eventbox, pixbuf_scaled);
         gtk_fixed_put(GTK_FIXED(fixed), eventbox, my_buttons[i].x,
                       my_buttons[i].y);
         gtk_widget_show_all(GTK_WIDGET(eventbox));
 
-        // animation
-        my_buttons[i].actor = actor = gtk_clutter_actor_new();
-        w = gtk_clutter_actor_get_widget(GTK_CLUTTER_ACTOR (actor));
-        gtk_container_add(GTK_CONTAINER(w), gtk_image_new_from_pixbuf(pixbuf_scaled));
-        clutter_container_add_actor(CLUTTER_CONTAINER (stage), actor);
-        clutter_actor_hide(actor);
-        g_object_unref(pixbuf);
-        g_object_unref(pixbuf_scaled);
-
+        // event
         g_signal_connect(G_OBJECT(eventbox), "button-press-event",
                          G_CALLBACK(on_button_clicked), 
                          &(my_buttons[i]));
+
+        g_object_unref(pixbuf);
+        g_object_unref(pixbuf_scaled);
     }
 
     g_signal_connect_swapped(G_OBJECT(window), "destroy",
